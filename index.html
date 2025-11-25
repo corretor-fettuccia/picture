@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picture-Pic - Ferramenta de Download em Massa</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --danger: #e63946;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --border: #dee2e6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fb;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .drop-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .drop-area:hover, .drop-area.active {
+            border-color: var(--primary);
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .drop-area i {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .drop-text {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+        
+        .drop-hint {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .upload-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .settings-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        select, input[type="text"], input[type="range"] {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        input[type="range"] {
+            padding: 0;
+        }
+        
+        .quality-value {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+            color: var(--primary);
+        }
+        
+        .preview-section {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .image-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .image-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+        
+        .image-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .image-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .image-info {
+            padding: 10px;
+            font-size: 0.85rem;
+        }
+        
+        .image-name {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px;
+        }
+        
+        .image-details {
+            color: var(--gray);
+            font-size: 0.8rem;
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+        }
+        
+        .remove-btn:hover {
+            opacity: 1;
+        }
+        
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            grid-column: 1 / -1;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary {
+            background-color: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e9ecef;
+        }
+        
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #3aa8d0;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #d00000;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+        }
+        
+        .status.success {
+            background-color: rgba(76, 201, 240, 0.2);
+            color: #0d6efd;
+            display: block;
+        }
+        
+        .status.error {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            display: block;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--gray);
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .counter {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+        
+        .image-number {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ImageDownload Pro</h1>
+            <p class="subtitle">Ferramenta completa para download de imagens em massa</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <h2 class="section-title">Adicionar Imagens</h2>
+                
+                <div class="upload-buttons">
+                    <button class="btn btn-primary" id="selectFiles">Selecionar Arquivos</button>
+                </div>
+                
+                <div class="drop-area" id="dropArea">
+                    <i>📁</i>
+                    <p class="drop-text">Arraste imagens aqui ou cole do clipboard</p>
+                    <p class="drop-hint">Formatos suportados: WebP, JPG, JPEG, PNG</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="baseName">Prefixo do nome das imagens:</label>
+                    <input type="text" id="baseName" value="minhas-imagens" placeholder="Digite o prefixo para os nomes">
+                </div>
+                
+                <div class="form-group">
+                    <label for="zipName">Nome do arquivo ZIP:</label>
+                    <input type="text" id="zipName" value="minhas-imagens" placeholder="Digite o nome do arquivo ZIP">
+                </div>
+                
+                <button class="btn btn-secondary" id="clearAll">Limpar Todas</button>
+            </div>
+            
+            <div class="settings-panel">
+                <h2 class="section-title">Configurações de Saída</h2>
+                
+                <div class="form-group">
+                    <label for="outputFormat">Formato de Saída:</label>
+                    <select id="outputFormat">
+                        <option value="original">Manter formato original</option>
+                        <option value="webp">WebP</option>
+                        <option value="jpeg">JPEG</option>
+                        <option value="png">PNG</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="quality">Qualidade de Compressão: <span id="qualityValue">80%</span></label>
+                    <input type="range" id="quality" min="5" max="100" value="80">
+                </div>
+                
+                <div class="counter">
+                    <span id="imageCount">0 imagens</span> selecionadas
+                </div>
+                
+                <button class="btn btn-primary" id="downloadBtn" disabled>Baixar como ZIP</button>
+                
+                <div class="status" id="statusMessage"></div>
+            </div>
+            
+            <div class="preview-section">
+                <h2 class="section-title">Pré-visualização das Imagens</h2>
+                
+                <div class="image-list" id="imageList">
+                    <div class="empty-state">
+                        <i>🖼️</i>
+                        <p>Nenhuma imagem adicionada ainda</p>
+                        <p>Arraste imagens para cá ou cole com Ctrl+V</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-success" id="processAll">Processar Todas</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept=".webp,.jpg,.jpeg,.png" style="display: none;">
+
+    <script>
+        // Elementos DOM
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const imageList = document.getElementById('imageList');
+        const outputFormat = document.getElementById('outputFormat');
+        const qualitySlider = document.getElementById('quality');
+        const qualityValue = document.getElementById('qualityValue');
+        const baseName = document.getElementById('baseName');
+        const zipName = document.getElementById('zipName');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const clearAllBtn = document.getElementById('clearAll');
+        const selectFilesBtn = document.getElementById('selectFiles');
+        const processAllBtn = document.getElementById('processAll');
+        const statusMessage = document.getElementById('statusMessage');
+        const imageCount = document.getElementById('imageCount');
+        
+        // Array para armazenar as imagens
+        let images = [];
+        let imageCounter = 0; // Contador único para IDs
+        
+        // Atualizar valor do slider de qualidade
+        qualitySlider.addEventListener('input', () => {
+            qualityValue.textContent = `${qualitySlider.value}%`;
+        });
+        
+        // Selecionar arquivos via botão
+        selectFilesBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+            fileInput.value = ''; // Reset para permitir selecionar os mesmos arquivos novamente
+        });
+        
+        // Configurar área de arrastar e soltar
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.classList.add('active');
+        }
+        
+        function unhighlight() {
+            dropArea.classList.remove('active');
+        }
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+        
+        // Suporte para colar do clipboard
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            const files = [];
+            
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    if (file && isImageFile(file)) {
+                        files.push(file);
+                    }
+                }
+            }
+            
+            if (files.length > 0) {
+                handleFiles(files);
+            }
+        });
+        
+        // Verificar se o arquivo é uma imagem suportada
+        function isImageFile(file) {
+            const acceptedTypes = ['image/webp', 'image/jpeg', 'image/jpg', 'image/png'];
+            return acceptedTypes.includes(file.type);
+        }
+        
+        // Gerar nome padronizado para as imagens
+        function generateImageName(index, outputType) {
+            const prefix = baseName.value || 'minhas-imagens';
+            const extension = outputType === 'original' ? getFileExtension(images[index].originalName) : outputType;
+            return `${prefix}-${index + 1}.${extension}`;
+        }
+        
+        // Obter extensão do arquivo original
+        function getFileExtension(filename) {
+            return filename.split('.').pop().toLowerCase();
+        }
+        
+        // Processar arquivos recebidos
+        function handleFiles(files) {
+            const fileArray = Array.from(files).filter(isImageFile);
+            
+            if (fileArray.length === 0) {
+                showStatus('Nenhuma imagem válida encontrada. Formatos suportados: WebP, JPG, JPEG, PNG', 'error');
+                return;
+            }
+            
+            fileArray.forEach(file => {
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    const outputType = outputFormat.value === 'original' 
+                        ? getFileExtension(file.name) 
+                        : outputFormat.value;
+                    
+                    const imageData = {
+                        id: `img_${Date.now()}_${imageCounter++}`, // ID único
+                        originalName: file.name,
+                        type: file.type,
+                        size: file.size,
+                        originalSize: file.size,
+                        dataUrl: e.target.result,
+                        file: file,
+                        processed: false,
+                        outputType: outputType,
+                        displayName: generateImageName(images.length, outputType)
+                    };
+                    
+                    images.push(imageData);
+                    updateImageList();
+                    updateImageCount();
+                    updateDownloadButton();
+                };
+                
+                reader.readAsDataURL(file);
+            });
+            
+            showStatus(`${fileArray.length} imagem(ns) adicionada(s) com sucesso!`, 'success');
+        }
+        
+        // Remover imagem individual - CORRIGIDO!
+        function removeImage(imageId) {
+            console.log('Tentando remover imagem ID:', imageId);
+            console.log('Imagens antes:', images.length);
+            
+            // Filtrar o array para remover a imagem
+            images = images.filter(img => {
+                const shouldKeep = img.id !== imageId;
+                if (!shouldKeep) {
+                    console.log('Removendo imagem:', img.displayName);
+                }
+                return shouldKeep;
+            });
+            
+            console.log('Imagens depois:', images.length);
+            
+            // Atualizar nomes após remoção
+            updateImageNames();
+            updateImageList();
+            updateImageCount();
+            updateDownloadButton();
+            showStatus('Imagem removida com sucesso!', 'success');
+        }
+        
+        // Atualizar nomes das imagens após remoção
+        function updateImageNames() {
+            images.forEach((image, index) => {
+                image.displayName = generateImageName(index, image.outputType);
+            });
+        }
+        
+        // Atualizar a lista de imagens na interface
+        function updateImageList() {
+            if (images.length === 0) {
+                imageList.innerHTML = `
+                    <div class="empty-state">
+                        <i>🖼️</i>
+                        <p>Nenhuma imagem adicionada ainda</p>
+                        <p>Arraste imagens para cá ou cole com Ctrl+V</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            imageList.innerHTML = '';
+            
+            images.forEach((image, index) => {
+                const format = image.type.split('/')[1].toUpperCase();
+                const size = formatBytes(image.size);
+                const originalSize = formatBytes(image.originalSize);
+                
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-item';
+                imageItem.innerHTML = `
+                    <button class="remove-btn" data-id="${image.id}">×</button>
+                    <img src="${image.dataUrl}" alt="${image.displayName}" class="image-preview">
+                    <div class="image-info">
+                        <div class="image-name">
+                            <span class="image-number">${index + 1}</span>
+                            ${image.displayName}
+                        </div>
+                        <div class="image-details">
+                            <div>Formato original: ${format}</div>
+                            <div>Tamanho: ${originalSize}</div>
+                            ${image.processed ? `<div>Processado: ${size}</div>` : ''}
+                            <div>Saída: ${image.outputType.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+                
+                imageList.appendChild(imageItem);
+            });
+            
+            // Adicionar event listeners para os botões de remover
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const imageId = e.target.getAttribute('data-id');
+                    console.log('Clicou no botão remover, ID:', imageId);
+                    removeImage(imageId);
+                });
+            });
+        }
+        
+        // Atualizar contador de imagens
+        function updateImageCount() {
+            imageCount.textContent = `${images.length} imagem(ns)`;
+        }
+        
+        // Atualizar estado do botão de download
+        function updateDownloadButton() {
+            downloadBtn.disabled = images.length === 0;
+        }
+        
+        // Formatar bytes para formato legível
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        // Mostrar mensagem de status
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status ' + type;
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Processar todas as imagens
+        processAllBtn.addEventListener('click', async () => {
+            if (images.length === 0) {
+                showStatus('Nenhuma imagem para processar', 'error');
+                return;
+            }
+            
+            showStatus('Processando imagens...', 'success');
+            
+            for (let i = 0; i < images.length; i++) {
+                await processImage(images[i], i);
+            }
+            
+            updateImageList();
+            showStatus('Todas as imagens foram processadas!', 'success');
+        });
+        
+        // Processar uma imagem individual
+        async function processImage(image, index) {
+            return new Promise((resolve) => {
+                const outputType = outputFormat.value === 'original' 
+                    ? image.type 
+                    : `image/${outputFormat.value}`;
+                
+                // Se o formato de saída for o mesmo e não há compressão, não processar
+                if (outputType === image.type && qualitySlider.value == 100) {
+                    image.processed = true;
+                    resolve();
+                    return;
+                }
+                
+                const quality = parseInt(qualitySlider.value) / 100;
+                
+                new Compressor(image.file, {
+                    quality: quality,
+                    mimeType: outputType,
+                    success(result) {
+                        const reader = new FileReader();
+                        
+                        reader.onload = (e) => {
+                            image.dataUrl = e.target.result;
+                            image.size = result.size;
+                            image.processed = true;
+                            image.outputType = outputFormat.value === 'original' 
+                                ? getFileExtension(image.originalName) 
+                                : outputFormat.value;
+                            
+                            // Atualizar nome do arquivo com o padrão correto
+                            image.displayName = generateImageName(index, outputFormat.value);
+                            
+                            resolve();
+                        };
+                        
+                        reader.readAsDataURL(result);
+                    },
+                    error(err) {
+                        console.error('Erro ao processar imagem:', err);
+                        showStatus(`Erro ao processar ${image.displayName}`, 'error');
+                        resolve();
+                    }
+                });
+            });
+        }
+        
+        // Limpar todas as imagens
+        clearAllBtn.addEventListener('click', () => {
+            images = [];
+            updateImageList();
+            updateImageCount();
+            updateDownloadButton();
+            showStatus('Todas as imagens foram removidas', 'success');
+        });
+        
+        // Baixar imagens como ZIP
+        downloadBtn.addEventListener('click', async () => {
+            if (images.length === 0) return;
+            
+            showStatus('Preparando download...', 'success');
+            downloadBtn.disabled = true;
+            
+            try {
+                const zip = new JSZip();
+                const folder = zip.folder("imagens");
+                
+                // Processar imagens se necessário
+                for (let i = 0; i < images.length; i++) {
+                    if (!images[i].processed) {
+                        await processImage(images[i], i);
+                    }
+                    
+                    // Converter dataURL para blob
+                    const response = await fetch(images[i].dataUrl);
+                    const blob = await response.blob();
+                    
+                    // Adicionar ao ZIP com o nome padronizado
+                    folder.file(images[i].displayName, blob);
+                }
+                
+                // Gerar ZIP
+                const zipBlob = await zip.generateAsync({type: "blob"});
+                
+                // Fazer download
+                const fileName = `${zipName.value || 'imagens'}.zip`;
+                saveAs(zipBlob, fileName);
+                
+                showStatus('Download concluído com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro ao criar ZIP:', error);
+                showStatus('Erro ao criar arquivo ZIP', 'error');
+            } finally {
+                downloadBtn.disabled = false;
+            }
+        });
+        
+        // Atualizar nomes quando o prefixo for alterado
+        baseName.addEventListener('input', () => {
+            updateImageNames();
+            updateImageList();
+        });
+        
+        // Inicialização
+        updateImageList();
+        updateImageCount();
+        updateDownloadButton();
+    </script>
+</body>
+</html>
