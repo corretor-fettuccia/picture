@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Picture-Pic - Ferramenta de Download em Massa</title>
+    <title>ImageDownload Pro - Ferramenta de Download em Massa</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary: #4361ee;
             --secondary: #3f37c9;
             --success: #4cc9f0;
             --danger: #e63946;
+            --warning: #f8961e;
             --light: #f8f9fa;
             --dark: #212529;
             --gray: #6c757d;
@@ -240,6 +242,12 @@
             grid-column: 1 / -1;
         }
         
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
         .btn {
             padding: 12px 25px;
             border: none;
@@ -248,6 +256,10 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
         .btn-primary {
@@ -276,6 +288,15 @@
         
         .btn-success:hover {
             background-color: #3aa8d0;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #e07c00;
         }
         
         .btn-danger {
@@ -337,6 +358,15 @@
             font-size: 0.8rem;
             margin-right: 5px;
         }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn:disabled:hover {
+            transform: none;
+        }
     </style>
 </head>
 <body>
@@ -351,7 +381,7 @@
                 <h2 class="section-title">Adicionar Imagens</h2>
                 
                 <div class="upload-buttons">
-                    <button class="btn btn-primary" id="selectFiles">Selecionar Arquivos</button>
+                    <button class="btn btn-primary" id="selectFiles">📁 Selecionar Arquivos</button>
                 </div>
                 
                 <div class="drop-area" id="dropArea">
@@ -370,7 +400,7 @@
                     <input type="text" id="zipName" value="minhas-imagens" placeholder="Digite o nome do arquivo ZIP">
                 </div>
                 
-                <button class="btn btn-secondary" id="clearAll">Limpar Todas</button>
+                <button class="btn btn-secondary" id="clearAll">🗑️ Limpar Todas</button>
             </div>
             
             <div class="settings-panel">
@@ -395,7 +425,10 @@
                     <span id="imageCount">0 imagens</span> selecionadas
                 </div>
                 
-                <button class="btn btn-primary" id="downloadBtn" disabled>Baixar como ZIP</button>
+                <div class="download-buttons">
+                    <button class="btn btn-primary" id="downloadBtn" disabled>📥 Baixar como ZIP</button>
+                    <button class="btn btn-warning" id="generatePdfBtn" disabled>📄 Gerar PDF A4</button>
+                </div>
                 
                 <div class="status" id="statusMessage"></div>
             </div>
@@ -413,7 +446,7 @@
             </div>
             
             <div class="actions">
-                <button class="btn btn-success" id="processAll">Processar Todas</button>
+                <button class="btn btn-success" id="processAll">⚡ Processar Todas</button>
             </div>
         </div>
     </div>
@@ -431,6 +464,7 @@
         const baseName = document.getElementById('baseName');
         const zipName = document.getElementById('zipName');
         const downloadBtn = document.getElementById('downloadBtn');
+        const generatePdfBtn = document.getElementById('generatePdfBtn');
         const clearAllBtn = document.getElementById('clearAll');
         const selectFilesBtn = document.getElementById('selectFiles');
         const processAllBtn = document.getElementById('processAll');
@@ -562,6 +596,7 @@
                     updateImageList();
                     updateImageCount();
                     updateDownloadButton();
+                    updatePdfButton();
                 };
                 
                 reader.readAsDataURL(file);
@@ -570,27 +605,14 @@
             showStatus(`${fileArray.length} imagem(ns) adicionada(s) com sucesso!`, 'success');
         }
         
-        // Remover imagem individual - CORRIGIDO!
+        // Remover imagem individual
         function removeImage(imageId) {
-            console.log('Tentando remover imagem ID:', imageId);
-            console.log('Imagens antes:', images.length);
-            
-            // Filtrar o array para remover a imagem
-            images = images.filter(img => {
-                const shouldKeep = img.id !== imageId;
-                if (!shouldKeep) {
-                    console.log('Removendo imagem:', img.displayName);
-                }
-                return shouldKeep;
-            });
-            
-            console.log('Imagens depois:', images.length);
-            
-            // Atualizar nomes após remoção
+            images = images.filter(img => img.id !== imageId);
             updateImageNames();
             updateImageList();
             updateImageCount();
             updateDownloadButton();
+            updatePdfButton();
             showStatus('Imagem removida com sucesso!', 'success');
         }
         
@@ -647,7 +669,6 @@
             document.querySelectorAll('.remove-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const imageId = e.target.getAttribute('data-id');
-                    console.log('Clicou no botão remover, ID:', imageId);
                     removeImage(imageId);
                 });
             });
@@ -661,6 +682,11 @@
         // Atualizar estado do botão de download
         function updateDownloadButton() {
             downloadBtn.disabled = images.length === 0;
+        }
+        
+        // Atualizar estado do botão de PDF
+        function updatePdfButton() {
+            generatePdfBtn.disabled = images.length === 0;
         }
         
         // Formatar bytes para formato legível
@@ -756,6 +782,7 @@
             updateImageList();
             updateImageCount();
             updateDownloadButton();
+            updatePdfButton();
             showStatus('Todas as imagens foram removidas', 'success');
         });
         
@@ -763,7 +790,7 @@
         downloadBtn.addEventListener('click', async () => {
             if (images.length === 0) return;
             
-            showStatus('Preparando download...', 'success');
+            showStatus('Preparando download do ZIP...', 'success');
             downloadBtn.disabled = true;
             
             try {
@@ -791,12 +818,106 @@
                 const fileName = `${zipName.value || 'imagens'}.zip`;
                 saveAs(zipBlob, fileName);
                 
-                showStatus('Download concluído com sucesso!', 'success');
+                showStatus('Download do ZIP concluído com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao criar ZIP:', error);
                 showStatus('Erro ao criar arquivo ZIP', 'error');
             } finally {
                 downloadBtn.disabled = false;
+            }
+        });
+        
+        // Gerar PDF com as imagens em A4 completo
+        generatePdfBtn.addEventListener('click', async () => {
+            if (images.length === 0) return;
+            
+            showStatus('Gerando PDF A4...', 'success');
+            generatePdfBtn.disabled = true;
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                const pdfName = `${zipName.value || 'imagens'}.pdf`;
+                
+                // Dimensões A4 em mm
+                const a4Width = 210;
+                const a4Height = 297;
+                const margin = 0; // Sem margens para ocupar página inteira
+                
+                for (let i = 0; i < images.length; i++) {
+                    const image = images[i];
+                    
+                    // Se não for a primeira imagem, adicionar nova página
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    try {
+                        // Carregar a imagem
+                        const img = new Image();
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = image.dataUrl;
+                        });
+                        
+                        // Calcular dimensões para preencher toda a página A4
+                        const pageRatio = a4Width / a4Height;
+                        const imgRatio = img.width / img.height;
+                        
+                        let finalWidth, finalHeight, x, y;
+                        
+                        if (imgRatio > pageRatio) {
+                            // Imagem mais larga que a página - preencher pela largura
+                            finalWidth = a4Width;
+                            finalHeight = a4Width / imgRatio;
+                            x = 0;
+                            y = (a4Height - finalHeight) / 2;
+                        } else {
+                            // Imagem mais alta que a página - preencher pela altura
+                            finalHeight = a4Height;
+                            finalWidth = a4Height * imgRatio;
+                            x = (a4Width - finalWidth) / 2;
+                            y = 0;
+                        }
+                        
+                        // Adicionar imagem ao PDF ocupando página inteira
+                        pdf.addImage(
+                            image.dataUrl,
+                            'JPEG', // Usar JPEG para melhor compatibilidade
+                            x,
+                            y,
+                            finalWidth,
+                            finalHeight,
+                            null,
+                            'FAST' // Modo rápido para melhor performance
+                        );
+                        
+                    } catch (error) {
+                        console.error('Erro ao adicionar imagem ao PDF:', error);
+                        // Em caso de erro, adicionar página em branco
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(0, 0, a4Width, a4Height, 'F');
+                        pdf.setTextColor(100, 100, 100);
+                        pdf.setFontSize(12);
+                        pdf.text(
+                            `Erro ao carregar imagem ${i + 1}`,
+                            a4Width / 2,
+                            a4Height / 2,
+                            { align: 'center' }
+                        );
+                    }
+                }
+                
+                // Salvar PDF
+                pdf.save(pdfName);
+                showStatus('PDF A4 gerado com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao gerar PDF:', error);
+                showStatus('Erro ao gerar PDF', 'error');
+            } finally {
+                generatePdfBtn.disabled = false;
             }
         });
         
@@ -810,6 +931,7 @@
         updateImageList();
         updateImageCount();
         updateDownloadButton();
+        updatePdfButton();
     </script>
 </body>
 </html>
